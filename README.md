@@ -10,6 +10,6 @@ docker-compose up --build
 
 2. Проверить работоспособность:
 
-GET: http://localhost:8000/phone/123
-
 Документация OpenAPI: http://localhost:8000/docs
+
+Все запросы строго по логике ТЗ.
