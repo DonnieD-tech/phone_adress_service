@@ -1,21 +1,25 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Response
+from fastapi import FastAPI, HTTPException, Depends, status, Response, Path
 from fastapi.responses import JSONResponse
 from app import schemas
 from app.redis_client import get_redis
+from app.utils import PHONE_PATTERN, PHONE_DESC, phone_normalization
 
-app = FastAPI(title='phone-address-service')
-
-
-KEY_PREFIX = 'phone:'
-
-
-def make_key(phone: str) -> str:
-    return f"{KEY_PREFIX}{phone}"
+app = FastAPI(
+    title='phone-address-service',
+    version='0.1'
+)
 
 
 @app.get('/phone/{phone}', response_model=schemas.AddressOut)
-async def get_address(phone: str, r = Depends(get_redis)):
-    key = make_key(phone)
+async def get_address(
+        phone: str = Path(
+            ...,
+            pattern=PHONE_PATTERN,
+            description=PHONE_DESC
+        ),
+        r = Depends(get_redis)
+):
+    key = phone_normalization(phone)
     address = await r.get(key)
     if address is None:
         raise HTTPException(
@@ -30,7 +34,7 @@ async def get_address(phone: str, r = Depends(get_redis)):
 
 @app.post('/phone', status_code=status.HTTP_201_CREATED)
 async def create_phone(payload: schemas.PhoneCreate, r = Depends(get_redis)):
-    key = make_key(payload.phone)
+    key = phone_normalization(payload.phone)
     exists = await r.exists(key)
     if exists:
         raise HTTPException(
@@ -48,8 +52,16 @@ async def create_phone(payload: schemas.PhoneCreate, r = Depends(get_redis)):
 
 
 @app.put('/phone/{phone}', response_model=schemas.AddressOut)
-async def update_phone(phone: str, payload: schemas.AddressUpdate, r = Depends(get_redis)):
-    key = make_key(phone)
+async def update_phone(
+        phone: str = Path(
+            ...,
+            pattern=PHONE_PATTERN,
+            description=PHONE_DESC
+        ),
+        payload: schemas.AddressUpdate = ...,
+        r = Depends(get_redis)
+):
+    key = phone_normalization(phone)
     exists = await r.exists(key)
     if not exists:
         raise HTTPException(
@@ -64,8 +76,14 @@ async def update_phone(phone: str, payload: schemas.AddressUpdate, r = Depends(g
 
 
 @app.delete('/phone/{phone}', status_code=status.HTTP_204_NO_CONTENT)
-async def delete_phone(phone: str, r = Depends(get_redis)):
-    key = make_key(phone)
+async def delete_phone(phone: str = Path(
+            ...,
+            pattern=PHONE_PATTERN,
+            description=PHONE_DESC
+        ),
+        r = Depends(get_redis)
+):
+    key = phone_normalization(phone)
     deleted = await r.delete(key)
     if deleted == 0:
         raise HTTPException(
